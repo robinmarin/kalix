@@ -1,10 +1,11 @@
-# Agent Prompt: Kalix — Declarative Kalman Filter with TypeScript CLI Bridge
+# Kalix — Declarative Kalman Filter with Language-Agnostic CLI Bridge
 
 ## Mission
 
-Build **Kalix**, a production-grade Kalman filter library in Rust with a CLI entry point
-designed to be driven from TypeScript via stdin/stdout JSON. The crate name is `kalix`
-throughout — in `Cargo.toml`, the binary name, and all documentation.
+**Kalix** is a production-grade Kalman filter library in Rust with a CLI entry point
+driven via stdin/stdout JSON — callable from any language that can spawn a process
+(Python, TypeScript, Ruby, Go, shell, etc.). The crate name is `kalix` throughout —
+in `Cargo.toml`, the binary name, and all documentation.
 
 The filter is **declaratively configured via TOML** — the user writes dynamics as symbolic
 expressions, and the system automatically derives the F (transition) and H (observation)
@@ -472,9 +473,65 @@ covariance = [[10, 0], [0, 10]]
 
 ---
 
-## TypeScript Integration
+## Language Integration
 
-### Live mode
+The CLI communicates exclusively via stdin/stdout JSON lines — no language-specific
+bindings required. Any language that can spawn a child process works identically.
+
+### Python
+
+```python
+import subprocess, json
+
+proc = subprocess.Popen(
+    ["./target/release/kalix", "--config", "configs/trend_with_accel.toml", "--mode", "live"],
+    stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+)
+
+# Read the ready event
+ready = json.loads(proc.stdout.readline())
+print(f"Filter ready: {ready['filter']} ({ready['variant']})")
+
+# Normal observation
+proc.stdin.write(json.dumps({"t": 1000.0, "dt": 1.0, "z": [10.3]}) + "\n")
+proc.stdin.flush()
+result = json.loads(proc.stdout.readline())
+print(f"pos={result['x']['pos']:.3f}, vel={result['x']['vel']:.3f}")
+
+# Predict-only (sensor dropout)
+proc.stdin.write(json.dumps({"t": 1001.0, "dt": 1.0, "z": None}) + "\n")
+proc.stdin.flush()
+result = json.loads(proc.stdout.readline())
+print(f"predict-only: pos={result['x']['pos']:.3f}")
+
+proc.stdin.close()
+proc.wait()
+```
+
+### Python — backtest from file
+
+```python
+import subprocess, json
+
+proc = subprocess.Popen(
+    ["./target/release/kalix", "--config", "configs/trend_with_accel.toml", "--input", "prices.jsonl"],
+    stdout=subprocess.PIPE, text=True
+)
+
+results = []
+for line in proc.stdout:
+    msg = json.loads(line)
+    if msg.get("event") == "ready":
+        continue
+    if msg.get("event") == "summary":
+        print(f"Done: {msg['steps']} steps, {msg['predict_only_steps']} predict-only")
+        break
+    results.append(msg)  # full per-step audit record
+
+proc.wait()
+```
+
+### TypeScript
 
 ```typescript
 import { spawn } from "child_process";
@@ -493,15 +550,7 @@ rl.on("line", (line) => {
     console.log("Filter ready:", msg.filter, msg.variant);
     return;
   }
-  // { t, x: { pos, vel, acc }, p_diag }
   console.log("pos:", msg.x.pos, "vel:", msg.x.vel);
-});
-
-proc.stderr.on("data", (chunk) => {
-  for (const line of chunk.toString().split("\n").filter(Boolean)) {
-    const log = JSON.parse(line);
-    if (log.level === "ERROR") console.error(log.message);
-  }
 });
 
 // Normal observation
@@ -509,28 +558,6 @@ proc.stdin.write(JSON.stringify({ t: Date.now() / 1000, dt: 1.0, z: [10.3] }) + 
 
 // Predict-only (sensor dropout)
 proc.stdin.write(JSON.stringify({ t: Date.now() / 1000 + 1, dt: 1.0, z: null }) + "\n");
-```
-
-### Backtest from file
-
-```typescript
-const proc = spawn("./target/release/kalix", [
-  "--config", "configs/trend_with_accel.toml",
-  "--input",  "prices.jsonl",
-]);
-
-const rl = readline.createInterface({ input: proc.stdout });
-const results: any[] = [];
-
-rl.on("line", (line) => {
-  const msg = JSON.parse(line);
-  if (msg.event === "ready")   return;
-  if (msg.event === "summary") {
-    console.log(`Done: ${msg.steps} steps, ${msg.predict_only_steps} predict-only`);
-    return;
-  }
-  results.push(msg);  // full per-step audit record
-});
 ```
 
 ---

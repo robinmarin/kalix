@@ -95,17 +95,17 @@ differentiator from scratch — the supported operation set is deliberately smal
 
 Expressions are polynomial in state variables and the special token `dt`. Supported:
 
-| Syntax             | Meaning                                          |
-|--------------------|--------------------------------------------------|
-| `pos`, `vel`, `x`  | State variable reference                         |
-| `dt`               | Timestep — a runtime parameter, not a state var  |
-| `3.14`, `0.5`      | Numeric literal                                  |
-| `a + b`            | Addition                                         |
-| `a - b`            | Subtraction                                      |
-| `a * b`            | Multiplication                                   |
-| `a / b`            | Division — right-hand side must be a literal     |
-| `a ^ 2`            | Integer power (positive integers only)           |
-| `(expr)`           | Grouping                                         |
+| Syntax            | Meaning                                         |
+| ----------------- | ----------------------------------------------- |
+| `pos`, `vel`, `x` | State variable reference                        |
+| `dt`              | Timestep — a runtime parameter, not a state var |
+| `3.14`, `0.5`     | Numeric literal                                 |
+| `a + b`           | Addition                                        |
+| `a - b`           | Subtraction                                     |
+| `a * b`           | Multiplication                                  |
+| `a / b`           | Division — right-hand side must be a literal    |
+| `a ^ 2`           | Integer power (positive integers only)          |
+| `(expr)`          | Grouping                                        |
 
 **No trig, no logarithms, no division by state variables.** The parser must return a
 descriptive error for unsupported syntax.
@@ -261,8 +261,12 @@ Emitted once after successful config load, before reading any input:
   "mode": "backtest",
   "state_variables": ["pos", "vel", "acc"],
   "observation_variables": ["z"],
-  "F": [[1,1,0.5],[0,1,1],[0,0,1]],
-  "H": [[1,0,0]]
+  "F": [
+    [1, 1, 0.5],
+    [0, 1, 1],
+    [0, 0, 1]
+  ],
+  "H": [[1, 0, 0]]
 }
 ```
 
@@ -275,11 +279,13 @@ For EKF: `"variant": "ekf"` and `F` is omitted (recomputed per step).
 One JSON object per line. Both modes share the same input format.
 
 **Normal step** — observation available:
+
 ```json
 { "t": 1746912000.0, "dt": 1.0, "z": [10.3] }
 ```
 
 **Predict-only step** — sensor dropout or missing bar:
+
 ```json
 { "t": 1746912001.0, "dt": 1.0, "z": null }
 ```
@@ -296,12 +302,12 @@ to **stderr** and apply the `--on-error` policy (default `skip`; `halt` exits wi
 ./kalix --config trend.toml --mode live --on-error halt
 ```
 
-| Condition           | Error message                               |
-|---------------------|---------------------------------------------|
-| `dt <= 0`           | `"invalid dt: must be positive, got {dt}"`  |
-| `dt` is NaN or inf  | `"invalid dt: non-finite value"`            |
-| wrong `z` length    | `"z has {n} elements, expected {m}"`        |
-| unparseable JSON    | `"malformed input: {reason}"`               |
+| Condition          | Error message                              |
+| ------------------ | ------------------------------------------ |
+| `dt <= 0`          | `"invalid dt: must be positive, got {dt}"` |
+| `dt` is NaN or inf | `"invalid dt: non-finite value"`           |
+| wrong `z` length   | `"z has {n} elements, expected {m}"`       |
+| unparseable JSON   | `"malformed input: {reason}"`              |
 
 ---
 
@@ -312,13 +318,22 @@ to **stderr** and apply the `--on-error` policy (default `skip`; `halt` exits wi
 One compact JSON line per input line. State named using `[state].variables`:
 
 ```json
-{ "t": 1746912000.0, "x": { "pos": 10.1, "vel": 0.31, "acc": 0.02 }, "p_diag": [0.48, 0.19, 0.01] }
+{
+  "t": 1746912000.0,
+  "x": { "pos": 10.1, "vel": 0.31, "acc": 0.02 },
+  "p_diag": [0.48, 0.19, 0.01]
+}
 ```
 
 For predict-only steps, shape is identical with `"predict_only": true` added:
 
 ```json
-{ "t": 1746912001.0, "predict_only": true, "x": { "pos": 10.41, "vel": 0.31, "acc": 0.02 }, "p_diag": [0.51, 0.20, 0.011] }
+{
+  "t": 1746912001.0,
+  "predict_only": true,
+  "x": { "pos": 10.41, "vel": 0.31, "acc": 0.02 },
+  "p_diag": [0.51, 0.2, 0.011]
+}
 ```
 
 ### Backtest Mode
@@ -332,14 +347,22 @@ Residual is named using `[observation].variables`.
   "t": 1746912000.0,
   "step": 42,
   "predict": {
-    "x": { "pos": 10.0, "vel": 0.30, "acc": 0.019 },
-    "P": [[0.51, 0.01, 0.0], [0.01, 0.21, 0.0], [0.0, 0.0, 0.011]]
+    "x": { "pos": 10.0, "vel": 0.3, "acc": 0.019 },
+    "P": [
+      [0.51, 0.01, 0.0],
+      [0.01, 0.21, 0.0],
+      [0.0, 0.0, 0.011]
+    ]
   },
   "update": {
-    "x":              { "pos": 10.1, "vel": 0.31, "acc": 0.020 },
-    "P":              [[0.48, 0.009, 0.0], [0.009, 0.19, 0.0], [0.0, 0.0, 0.010]],
-    "residual":       { "z": 0.2 },
-    "kalman_gain":    [[0.48], [0.09], [0.01]],
+    "x": { "pos": 10.1, "vel": 0.31, "acc": 0.02 },
+    "P": [
+      [0.48, 0.009, 0.0],
+      [0.009, 0.19, 0.0],
+      [0.0, 0.0, 0.01]
+    ],
+    "residual": { "z": 0.2 },
+    "kalman_gain": [[0.48], [0.09], [0.01]],
     "innovation_cov": [[1.48]]
   }
 }
@@ -358,7 +381,7 @@ Emitted to **stdout** when stdin reaches EOF or the input file is exhausted:
   "steps": 1000,
   "predict_only_steps": 12,
   "skipped_steps": 3,
-  "final_x":      { "pos": 10.1, "vel": 0.30, "acc": 0.019 },
+  "final_x": { "pos": 10.1, "vel": 0.3, "acc": 0.019 },
   "final_p_diag": [0.48, 0.19, 0.01]
 }
 ```
@@ -373,6 +396,7 @@ All diagnostic output goes to **stderr** as structured JSON via `tracing` +
 Control verbosity with `RUST_LOG`:
 
 **`RUST_LOG=info`** — startup summary only:
+
 ```json
 {"timestamp":"...","level":"INFO","message":"config loaded","filter":"trend_with_accel","variant":"linear"}
 {"timestamp":"...","level":"INFO","message":"derived F","F":[[1,1,0.5],[0,1,1],[0,0,1]]}
@@ -380,6 +404,7 @@ Control verbosity with `RUST_LOG`:
 ```
 
 **`RUST_LOG=debug`** — per-step internals:
+
 ```json
 {"timestamp":"...","level":"DEBUG","message":"predict","step":42,"x_prior":[10,0.3,0.02],"x_post":[10.3,0.3,0.02]}
 {"timestamp":"...","level":"DEBUG","message":"kalman gain","K":[[0.48],[0.09],[0.01]]}
@@ -538,8 +563,10 @@ import { spawn } from "child_process";
 import * as readline from "readline";
 
 const proc = spawn("./target/release/kalix", [
-  "--config", "configs/trend_with_accel.toml",
-  "--mode",   "live",
+  "--config",
+  "configs/trend_with_accel.toml",
+  "--mode",
+  "live",
 ]);
 
 const rl = readline.createInterface({ input: proc.stdout });
@@ -554,10 +581,14 @@ rl.on("line", (line) => {
 });
 
 // Normal observation
-proc.stdin.write(JSON.stringify({ t: Date.now() / 1000, dt: 1.0, z: [10.3] }) + "\n");
+proc.stdin.write(
+  JSON.stringify({ t: Date.now() / 1000, dt: 1.0, z: [10.3] }) + "\n",
+);
 
 // Predict-only (sensor dropout)
-proc.stdin.write(JSON.stringify({ t: Date.now() / 1000 + 1, dt: 1.0, z: null }) + "\n");
+proc.stdin.write(
+  JSON.stringify({ t: Date.now() / 1000 + 1, dt: 1.0, z: null }) + "\n",
+);
 ```
 
 ---

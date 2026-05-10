@@ -1,0 +1,23 @@
+[filter]
+name = "trend_with_accel"
+description = "Position/velocity/acceleration trend follower"
+
+[state]
+variables = ["pos", "vel", "acc"]
+
+[dynamics]
+pos = "pos + vel*dt + 0.5*acc*dt^2"
+vel = "vel + acc*dt"
+acc = "acc"
+
+[observation]
+variables = ["z"]
+expressions = ["pos"]
+
+[noise]
+process = [[0.01, 0, 0], [0, 0.01, 0], [0, 0, 0.01]]
+measurement = [[1.0]]
+
+[initial]
+state = [0.0, 0.0, 0.0]
+covariance = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]

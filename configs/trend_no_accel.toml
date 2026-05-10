@@ -1,0 +1,22 @@
+[filter]
+name = "trend_no_accel"
+description = "Position/velocity trend follower (no acceleration)"
+
+[state]
+variables = ["pos", "vel"]
+
+[dynamics]
+pos = "pos + vel*dt"
+vel = "vel"
+
+[observation]
+variables = ["z"]
+expressions = ["pos"]
+
+[noise]
+process = [[0.01, 0], [0, 0.01]]
+measurement = [[1.0]]
+
+[initial]
+state = [0.0, 0.0]
+covariance = [[1, 0], [0, 1]]

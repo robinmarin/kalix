@@ -1,0 +1,22 @@
+[filter]
+name = "constant_velocity"
+description = "Constant velocity model"
+
+[state]
+variables = ["pos", "vel"]
+
+[dynamics]
+pos = "pos + vel*dt"
+vel = "vel"
+
+[observation]
+variables = ["z"]
+expressions = ["pos"]
+
+[noise]
+process = [[0.1, 0], [0, 0.1]]
+measurement = [[5.0]]
+
+[initial]
+state = [0.0, 0.0]
+covariance = [[10, 0], [0, 10]]

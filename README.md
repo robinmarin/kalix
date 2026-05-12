@@ -66,7 +66,7 @@ name        = "kalix"
 version     = "0.1.0"
 edition     = "2021"
 description = "Declarative Kalman filtering from dynamics expressions. Write the physics, derive the filter."
-license     = "MIT OR Apache-2.0"
+license     = "MIT"
 
 [[bin]]
 name = "kalix"

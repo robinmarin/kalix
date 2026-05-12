@@ -4,6 +4,11 @@ version = "0.1.0"
 edition = "2021"
 description = "Declarative Kalman filtering from dynamics expressions. Write the physics, derive the filter."
 license = "MIT"
+repository = "https://github.com/robinmarin/kalix"
+documentation = "https://docs.rs/kalix"
+readme = "README.md"
+keywords = ["kalman", "filter", "estimation", "signal-processing", "scientific-computing"]
+categories = ["science", "mathematics", "algorithms"]
 
 [[bin]]
 name = "kalix"

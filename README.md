@@ -63,7 +63,7 @@ kalman/
 ```toml
 [package]
 name        = "kalix"
-version     = "0.1.0"
+version     = "0.2.0"
 edition     = "2021"
 description = "Declarative Kalman filtering from dynamics expressions. Write the physics, derive the filter."
 license     = "MIT"

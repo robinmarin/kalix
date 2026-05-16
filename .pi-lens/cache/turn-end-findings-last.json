@@ -1,0 +1,4 @@
+{
+  "signature": "src/expr/diff.rs|src/expr/eval.rs|src/expr/parser.rs::Unresolved from this turn — src/expr/eval.rs:\n🔴 STOP — 4 issue(s) must be fixed:\n  L346: non-exhaustive patterns: `&expr::ast::Expr::Sin(_)` and `&expr::ast::Expr::Cos(_)` not covered\n  L366: non-exhaustive patterns: `&expr::ast::Expr::Sin(_)` and `&expr::ast::Expr::Cos(_)` not covered\n  L386: non-exhaustive patterns: `&expr::ast::Expr::Sin(_)` and `&expr::ast::Expr::Cos(_)` not covered\n  L411: non-exhaustive patterns: `&expr::ast::Expr::Sin(_)` and `&expr::ast::Expr::Cos(_)` not covered",
+  "sessionId": "lens-mp8db4v0-bc6ab39f"
+}

@@ -187,6 +187,102 @@ covariance = [[1.0]]
     }
 
     #[test]
+    fn test_pendulum_is_ekf() {
+        const PENDULUM_CONFIG: &str = r#"
+[filter]
+name = "pendulum"
+
+[state]
+variables = ["theta", "omega"]
+
+[dynamics]
+theta = "theta + omega*dt"
+omega = "omega - 9.81*sin(theta)*dt"
+
+[observation]
+variables   = ["z"]
+expressions = ["theta"]
+
+[noise]
+process     = [[0.01, 0], [0, 0.01]]
+measurement = [[1.0]]
+
+[initial]
+state      = [0.0, 0.0]
+covariance = [[1, 0], [0, 1]]
+"#;
+        let config = Config::from_toml(PENDULUM_CONFIG).unwrap();
+        assert_eq!(config.variant, Variant::Ekf);
+    }
+
+    #[test]
+    fn test_trig_observation_parses() {
+        const TRIG_OBS_CONFIG: &str = r#"
+[filter]
+name = "trig_obs"
+
+[state]
+variables = ["angle"]
+
+[dynamics]
+angle = "angle"
+
+[observation]
+variables   = ["sin_z", "cos_z"]
+expressions = ["sin(angle)", "cos(angle)"]
+
+[noise]
+process     = [[0.01]]
+measurement = [[0.1, 0], [0, 0.1]]
+
+[initial]
+state      = [0.0]
+covariance = [[1.0]]
+"#;
+        let config = Config::from_toml(TRIG_OBS_CONFIG).unwrap();
+        // Variant is Linear: dynamics "angle" is linear.
+        // (Observation non-linearity doesn't affect variant detection.)
+        assert_eq!(config.variant, Variant::Linear);
+    }
+
+    #[test]
+    fn test_pendulum_derive_F() {
+        const PENDULUM_CONFIG: &str = r#"
+[filter]
+name = "pendulum"
+
+[state]
+variables = ["theta", "omega"]
+
+[dynamics]
+theta = "theta + omega*dt"
+omega = "omega - 9.81*sin(theta)*dt"
+
+[observation]
+variables   = ["z"]
+expressions = ["theta"]
+
+[noise]
+process     = [[0.01, 0], [0, 0.01]]
+measurement = [[1.0]]
+
+[initial]
+state      = [0.0, 0.0]
+covariance = [[1, 0], [0, 1]]
+"#;
+        let config = Config::from_toml(PENDULUM_CONFIG).unwrap();
+        // At theta = 0, dt = 1:
+        // d(theta+omega*dt)/d(theta) = 1, d/d(omega) = 1
+        // d(omega-9.81*sin(theta)*dt)/d(theta) = -9.81*cos(0)*1 = -9.81
+        // d/d(omega) = 1
+        let F = config.derive_F(1.0);
+        assert!((F[(0, 0)] - 1.0).abs() < 1e-10);
+        assert!((F[(0, 1)] - 1.0).abs() < 1e-10);
+        assert!((F[(1, 0)] + 9.81).abs() < 1e-10);
+        assert!((F[(1, 1)] - 1.0).abs() < 1e-10);
+    }
+
+    #[test]
     fn test_wrong_q_size_is_error() {
         const BAD_CONFIG: &str = r#"
 [filter]

@@ -41,8 +41,27 @@ mod tests {
     }
 
     #[test]
-    fn test_unsupported_trig() {
-        assert!(parse("sin(pos)").is_err());
+    fn test_sin_parses() {
+        assert_eq!(parse("sin(pos)"), Ok(Expr::sin(Expr::var("pos"))));
+    }
+
+    #[test]
+    fn test_cos_parses() {
+        assert_eq!(parse("cos(vel)"), Ok(Expr::cos(Expr::var("vel"))));
+    }
+
+    #[test]
+    fn test_sin_with_arith() {
+        assert_eq!(
+            parse("sin(vel * dt)"),
+            Ok(Expr::sin(Expr::mul(Expr::var("vel"), Expr::var("dt")))),
+        );
+    }
+
+    #[test]
+    fn test_unknown_function_rejected() {
+        assert!(parse("tan(pos)").is_err());
+        assert!(parse("log(pos)").is_err());
     }
 
     #[test]

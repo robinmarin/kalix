@@ -37,5 +37,13 @@ pub fn eval_with_map(expr: &Expr, bindings: &HashMap<&str, f64>) -> Result<f64, 
             let val = eval_with_map(base, bindings)?;
             Ok(val.powi(*n as i32))
         }
+        Expr::Sin(arg) => {
+            let val = eval_with_map(arg, bindings)?;
+            Ok(val.sin())
+        }
+        Expr::Cos(arg) => {
+            let val = eval_with_map(arg, bindings)?;
+            Ok(val.cos())
+        }
     }
 }

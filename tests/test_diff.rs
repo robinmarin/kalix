@@ -90,4 +90,52 @@ mod tests {
         let v = diff_and_eval(expr, "acc", &[("vel", 0.0), ("acc", 0.0), ("dt", 0.5)]);
         assert!((v - 0.5).abs() < 1e-15);
     }
+
+    #[test]
+    fn test_diff_sin_x_is_cos_x() {
+        // d/dx(sin(x)) = cos(x)
+        let v = diff_and_eval("sin(x)", "x", &[("x", 0.0)]);
+        assert!((v - 1.0).abs() < 1e-15);
+
+        let v = diff_and_eval("sin(x)", "x", &[("x", std::f64::consts::FRAC_PI_3)]);
+        assert!((v - 0.5).abs() < 1e-10);
+    }
+
+    #[test]
+    fn test_diff_cos_x_is_neg_sin_x() {
+        // d/dx(cos(x)) = -sin(x)
+        let v = diff_and_eval("cos(x)", "x", &[("x", 0.0)]);
+        assert!((v - 0.0).abs() < 1e-15);
+
+        let v = diff_and_eval("cos(x)", "x", &[("x", std::f64::consts::FRAC_PI_6)]);
+        assert!((v + 0.5).abs() < 1e-10);
+    }
+
+    #[test]
+    fn test_diff_sin_of_linear_uses_chain_rule() {
+        // d/dx(sin(a*x + b)) = cos(a*x + b) * a
+        let expr = "sin(2.0*x + 1.0)";
+
+        let v = diff_and_eval(expr, "x", &[("x", 0.0)]);
+        let expected = 2.0 * 1.0_f64.cos();
+        assert!((v - expected).abs() < 1e-10);
+    }
+
+    #[test]
+    fn test_diff_sin_pos_is_cos_pos() {
+        // d/dx(sin(x)) when 'pos' is the variable name
+        let v = diff_and_eval("sin(pos)", "pos", &[("pos", 0.0)]);
+        assert!((v - 1.0).abs() < 1e-15);
+
+        let v = diff_and_eval("sin(pos)", "pos", &[("pos", std::f64::consts::FRAC_PI_6)]);
+        let expected = (std::f64::consts::FRAC_PI_6).cos();
+        assert!((v - expected).abs() < 1e-10);
+    }
+
+    #[test]
+    fn test_diff_trig_wrt_other_var_is_zero() {
+        // d/dy(sin(x)) = cos(x) * 0 = 0
+        let v = diff_and_eval("sin(x)", "y", &[("x", 1.0), ("y", 0.0)]);
+        assert!((v - 0.0).abs() < 1e-15);
+    }
 }

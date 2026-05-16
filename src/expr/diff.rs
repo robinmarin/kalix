@@ -85,6 +85,21 @@ fn diff_raw(expr: &Expr, var: &str) -> Expr {
                 )
             }
         }
+
+        Expr::Sin(arg) => {
+            // d/dx(sin(u)) = cos(u) * u'
+            let darg = diff_raw(arg, var);
+            Expr::mul(Expr::cos(arg.as_ref().clone()), darg)
+        }
+
+        Expr::Cos(arg) => {
+            // d/dx(cos(u)) = -sin(u) * u'
+            let darg = diff_raw(arg, var);
+            Expr::mul(
+                Expr::mul(Expr::Lit(-1.0), Expr::sin(arg.as_ref().clone())),
+                darg,
+            )
+        }
     }
 }
 
@@ -170,6 +185,9 @@ pub fn simplify(expr: Expr) -> Expr {
                 _ => Expr::pow(base, n),
             }
         }
+
+        Expr::Sin(arg) => Expr::sin(simplify(*arg)),
+        Expr::Cos(arg) => Expr::cos(simplify(*arg)),
     }
 }
 

@@ -95,4 +95,95 @@ covariance = [[1, 0], [0, 1]]
         assert!(predicted.x.iter().all(|v| v.is_finite()));
         assert!(predicted.P.iter().all(|v| v.is_finite()));
     }
+
+    // ── Pendulum EKF (trigonometric dynamics) ───────────────────────
+
+    const PENDULUM_CONFIG: &str = r#"
+[filter]
+name = "pendulum"
+
+[state]
+variables = ["theta", "omega"]
+
+[dynamics]
+theta = "theta + omega*dt"
+omega = "omega - 9.81*sin(theta)*dt"
+
+[observation]
+variables   = ["z"]
+expressions = ["theta"]
+
+[noise]
+process     = [[0.001, 0], [0, 0.001]]
+measurement = [[0.1]]
+
+[initial]
+state      = [0.1, 0.0]
+covariance = [[0.1, 0], [0, 0.1]]
+"#;
+
+    fn build_pendulum_ekf() -> EKF {
+        let config = Config::from_toml(PENDULUM_CONFIG).unwrap();
+        let H = config.derive_H();
+        EKF::new(
+            config.dynamics,
+            config.state_variables,
+            H,
+            config.Q,
+            config.R,
+            &config.x0,
+            config.P0,
+        )
+    }
+
+    #[test]
+    fn test_pendulum_variant_is_ekf() {
+        let config = Config::from_toml(PENDULUM_CONFIG).unwrap();
+        assert_eq!(config.variant, kalix::config::Variant::Ekf);
+    }
+
+    #[test]
+    fn test_pendulum_jacobian_at_theta_0() {
+        let ekf = build_pendulum_ekf();
+        // At theta=0, dt=1:
+        // d(theta+omega)/d(theta)=1, d/d(omega)=1
+        // d(omega-9.81*sin(theta))/d(theta) = -9.81*cos(0) = -9.81, d/d(omega)=1
+        let jac = ekf.jacobian(&[0.0, 0.0], 1.0);
+        assert_abs_diff_eq!(jac[(0, 0)], 1.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(jac[(0, 1)], 1.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(jac[(1, 0)], -9.81, epsilon = 1e-10);
+        assert_abs_diff_eq!(jac[(1, 1)], 1.0, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_pendulum_jacobian_at_theta_pi_6() {
+        let ekf = build_pendulum_ekf();
+        let theta = std::f64::consts::FRAC_PI_6;
+        let jac = ekf.jacobian(&[theta, 0.0], 1.0);
+        let expected = -9.81 * theta.cos();
+        assert_abs_diff_eq!(jac[(0, 0)], 1.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(jac[(0, 1)], 1.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(jac[(1, 0)], expected, epsilon = 1e-10);
+        assert_abs_diff_eq!(jac[(1, 1)], 1.0, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_pendulum_single_step_finite() {
+        let mut ekf = build_pendulum_ekf();
+        let result = ekf.step(1.0, &[0.05]);
+        assert!(result.update.residual[0].is_finite());
+        assert!(result.update.updated.x.iter().all(|v| v.is_finite()));
+    }
+
+    #[test]
+    fn test_pendulum_stability_50_steps() {
+        let mut ekf = build_pendulum_ekf();
+        for i in 0..50 {
+            let z = 0.1 * (i as f64 * 0.1).sin();
+            ekf.step(0.1, &[z]);
+        }
+        assert!(ekf.state().iter().all(|v| v.is_finite()));
+        assert!(ekf.state()[0].abs() < 10.0);
+        assert!(ekf.state()[1].abs() < 10.0);
+    }
 }

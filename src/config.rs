@@ -358,6 +358,7 @@ fn validate_variables(expr: &Expr, state_vars: &[String]) -> Result<(), ConfigEr
             Ok(())
         }
         Expr::Pow(a, _) => validate_variables(a, state_vars),
+        Expr::Sin(a) | Expr::Cos(a) => validate_variables(a, state_vars),
     }
 }
 
@@ -378,6 +379,7 @@ fn validate_observation_variables(expr: &Expr, state_vars: &[String]) -> Result<
             Ok(())
         }
         Expr::Pow(a, _) => validate_observation_variables(a, state_vars),
+        Expr::Sin(a) | Expr::Cos(a) => validate_observation_variables(a, state_vars),
     }
 }
 
@@ -390,6 +392,7 @@ fn references_dt(expr: &Expr) -> bool {
             references_dt(a) || references_dt(b)
         }
         Expr::Pow(a, _) => references_dt(a),
+        Expr::Sin(a) | Expr::Cos(a) => references_dt(a),
     }
 }
 
@@ -415,6 +418,7 @@ fn contains_state_var(expr: &Expr, state_vars: &[String]) -> bool {
             contains_state_var(a, state_vars) || contains_state_var(b, state_vars)
         }
         Expr::Pow(a, _) => contains_state_var(a, state_vars),
+        Expr::Sin(a) | Expr::Cos(a) => contains_state_var(a, state_vars),
     }
 }
 

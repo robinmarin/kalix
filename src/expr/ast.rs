@@ -2,7 +2,7 @@
 ///
 /// Expressions are polynomial in state variables and the special token `dt`.
 /// Supported operations: addition, subtraction, multiplication, division-by-literal,
-/// and integer powers.
+/// integer powers, and trigonometric functions (`sin`, `cos`).
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
     /// A numeric literal: `3.14`, `0.5`, `1.0`
@@ -19,6 +19,10 @@ pub enum Expr {
     Div(Box<Expr>, Box<Expr>),
     /// Integer power: `a ^ n` where n is a positive integer
     Pow(Box<Expr>, u32),
+    /// Sine: `sin(expr)`
+    Sin(Box<Expr>),
+    /// Cosine: `cos(expr)`
+    Cos(Box<Expr>),
 }
 
 impl Expr {
@@ -60,6 +64,16 @@ impl Expr {
     pub fn pow(a: Expr, n: u32) -> Self {
         Expr::Pow(Box::new(a), n)
     }
+
+    /// Convenience: `sin(a)`
+    pub fn sin(a: Expr) -> Self {
+        Expr::Sin(Box::new(a))
+    }
+
+    /// Convenience: `cos(a)`
+    pub fn cos(a: Expr) -> Self {
+        Expr::Cos(Box::new(a))
+    }
 }
 
 impl std::fmt::Display for Expr {
@@ -72,6 +86,8 @@ impl std::fmt::Display for Expr {
             Expr::Mul(a, b) => write!(f, "({} * {})", a, b),
             Expr::Div(a, b) => write!(f, "({} / {})", a, b),
             Expr::Pow(a, n) => write!(f, "({} ^ {})", a, n),
+            Expr::Sin(a) => write!(f, "sin({})", a),
+            Expr::Cos(a) => write!(f, "cos({})", a),
         }
     }
 }

@@ -49,6 +49,7 @@ fn validate_division(expr: &Expr) -> Result<(), String> {
             Ok(())
         }
         Expr::Pow(a, _) => validate_division(a),
+        Expr::Sin(a) | Expr::Cos(a) => validate_division(a),
     }
 }
 
@@ -222,7 +223,26 @@ fn parse_power(lexer: &mut Lexer) -> Result<Expr, String> {
 fn parse_atom(lexer: &mut Lexer) -> Result<Expr, String> {
     match lexer.next() {
         Some(Token::Number(v)) => Ok(Expr::Lit(v)),
-        Some(Token::Ident(name)) => Ok(Expr::Var(name)),
+        Some(Token::Ident(name)) => {
+            // Function call: sin(...), cos(...)
+            if let Some(Token::LParen) = lexer.peek() {
+                lexer.next(); // consume '('
+                let arg = parse_expr(lexer)?;
+                match lexer.next() {
+                    Some(Token::RParen) => match name.as_str() {
+                        "sin" => Ok(Expr::sin(arg)),
+                        "cos" => Ok(Expr::cos(arg)),
+                        other => Err(format!(
+                            "unknown function: '{}' — only sin and cos are supported",
+                            other
+                        )),
+                    },
+                    other => Err(format!("expected ')', got {:?}", other)),
+                }
+            } else {
+                Ok(Expr::Var(name))
+            }
+        }
         Some(Token::LParen) => {
             let expr = parse_expr(lexer)?;
             match lexer.next() {
@@ -277,8 +297,36 @@ mod tests {
     }
 
     #[test]
-    fn test_no_trig() {
-        assert!(parse("sin(pos)").is_err());
+    fn test_sin_parses() {
+        let result = parse("sin(pos)");
+        assert!(
+            result.is_ok(),
+            "Expected sin(pos) to parse, got {:?}",
+            result
+        );
+        assert_eq!(result.unwrap(), Expr::sin(Expr::var("pos")));
+    }
+
+    #[test]
+    fn test_cos_parses() {
+        let result = parse("cos(vel)");
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), Expr::cos(Expr::var("vel")));
+    }
+
+    #[test]
+    fn test_sin_with_expression() {
+        let result = parse("sin(vel*dt)");
+        assert!(result.is_ok());
+        assert_eq!(
+            result.unwrap(),
+            Expr::sin(Expr::mul(Expr::var("vel"), Expr::var("dt"))),
+        );
+    }
+
+    #[test]
+    fn test_unknown_function_rejected() {
+        assert!(parse("tan(pos)").is_err());
     }
 
     #[test]

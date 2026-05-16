@@ -138,4 +138,64 @@ mod tests {
         let v = diff_and_eval("sin(x)", "y", &[("x", 1.0), ("y", 0.0)]);
         assert!((v - 0.0).abs() < 1e-15);
     }
+
+    // ── log / exp differentiation ──────────────────────────────────
+
+    #[test]
+    fn test_diff_log_x_is_one_over_x() {
+        // d/dx(log(x)) = 1/x
+        let v = diff_and_eval("log(x)", "x", &[("x", 2.0)]);
+        assert!((v - 0.5).abs() < 1e-15);
+
+        let v = diff_and_eval("log(x)", "x", &[("x", 1.0)]);
+        assert!((v - 1.0).abs() < 1e-15);
+    }
+
+    #[test]
+    fn test_diff_exp_x_is_exp_x() {
+        // d/dx(exp(x)) = exp(x)
+        let v = diff_and_eval("exp(x)", "x", &[("x", 0.0)]);
+        assert!((v - 1.0).abs() < 1e-15);
+
+        let v = diff_and_eval("exp(x)", "x", &[("x", 1.0)]);
+        let expected = 1.0_f64.exp();
+        assert!((v - expected).abs() < 1e-10);
+    }
+
+    #[test]
+    fn test_diff_log_of_linear_uses_chain_rule() {
+        // d/dx(log(a*x + b)) = a / (a*x + b)
+        let expr = "log(3.0*x + 2.0)";
+
+        let v = diff_and_eval(expr, "x", &[("x", 1.0)]);
+        let expected = 3.0 / 5.0; // 3 / (3*1 + 2)
+        assert!((v - expected).abs() < 1e-10);
+    }
+
+    #[test]
+    fn test_diff_exp_of_linear_uses_chain_rule() {
+        // d/dx(exp(a*x + b)) = exp(a*x + b) * a
+        let expr = "exp(2.0*x + 1.0)";
+
+        let v = diff_and_eval(expr, "x", &[("x", 0.0)]);
+        let expected = 2.0 * 1.0_f64.exp();
+        assert!((v - expected).abs() < 1e-10);
+    }
+
+    #[test]
+    fn test_diff_log_wrt_other_var_is_zero() {
+        let v = diff_and_eval("log(x)", "y", &[("x", 2.0), ("y", 0.0)]);
+        assert!((v - 0.0).abs() < 1e-15);
+    }
+
+    #[test]
+    fn test_eval_log_of_negative_rejected() {
+        use kalix::expr::eval::eval;
+        use kalix::expr::parser::parse;
+
+        let expr = parse("log(x)").unwrap();
+        let result = eval(&expr, &[("x", -1.0)]);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("log of non-positive"));
+    }
 }

@@ -100,6 +100,18 @@ fn diff_raw(expr: &Expr, var: &str) -> Expr {
                 darg,
             )
         }
+
+        Expr::Log(arg) => {
+            // d/dx(log(u)) = u' / u
+            let darg = diff_raw(arg, var);
+            Expr::div(darg, arg.as_ref().clone())
+        }
+
+        Expr::Exp(arg) => {
+            // d/dx(exp(u)) = exp(u) * u'
+            let darg = diff_raw(arg, var);
+            Expr::mul(Expr::exp(arg.as_ref().clone()), darg)
+        }
     }
 }
 
@@ -188,6 +200,8 @@ pub fn simplify(expr: Expr) -> Expr {
 
         Expr::Sin(arg) => Expr::sin(simplify(*arg)),
         Expr::Cos(arg) => Expr::cos(simplify(*arg)),
+        Expr::Log(arg) => Expr::log(simplify(*arg)),
+        Expr::Exp(arg) => Expr::exp(simplify(*arg)),
     }
 }
 

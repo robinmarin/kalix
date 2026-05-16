@@ -186,4 +186,85 @@ covariance = [[0.1, 0], [0, 0.1]]
         assert!(ekf.state()[0].abs() < 10.0);
         assert!(ekf.state()[1].abs() < 10.0);
     }
+
+    // ── Exponential growth EKF ──────────────────────────────────────
+
+    const EXP_GROWTH_CONFIG: &str = r#"
+[filter]
+name = "exp_growth"
+
+[state]
+variables = ["x"]
+
+[dynamics]
+x = "x + 0.1*exp(x)*dt"
+
+[observation]
+variables   = ["z"]
+expressions = ["x"]
+
+[noise]
+process     = [[0.01]]
+measurement = [[1.0]]
+
+[initial]
+state      = [0.5]
+covariance = [[1.0]]
+"#;
+
+    fn build_exp_growth_ekf() -> EKF {
+        let config = Config::from_toml(EXP_GROWTH_CONFIG).unwrap();
+        let H = config.derive_H();
+        EKF::new(
+            config.dynamics,
+            config.state_variables,
+            H,
+            config.Q,
+            config.R,
+            &config.x0,
+            config.P0,
+        )
+    }
+
+    #[test]
+    fn test_exp_growth_variant_is_ekf() {
+        let config = Config::from_toml(EXP_GROWTH_CONFIG).unwrap();
+        assert_eq!(config.variant, kalix::config::Variant::Ekf);
+    }
+
+    #[test]
+    fn test_exp_growth_jacobian_at_x_0() {
+        let ekf = build_exp_growth_ekf();
+        // F = d/dx(x + 0.1*exp(x)*dt) = 1 + 0.1*exp(x)*dt
+        // At x=0, dt=1: F = 1 + 0.1*1*1 = 1.1
+        let jac = ekf.jacobian(&[0.0], 1.0);
+        assert_abs_diff_eq!(jac[(0, 0)], 1.1, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_exp_growth_jacobian_at_x_1() {
+        let ekf = build_exp_growth_ekf();
+        // At x=1, dt=1: F = 1 + 0.1*exp(1) ≈ 1 + 0.1*2.71828 = 1.271828
+        let jac = ekf.jacobian(&[1.0], 1.0);
+        let expected = 1.0 + 0.1 * 1.0_f64.exp();
+        assert_abs_diff_eq!(jac[(0, 0)], expected, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_exp_growth_single_step_finite() {
+        let mut ekf = build_exp_growth_ekf();
+        let result = ekf.step(1.0, &[0.6]);
+        assert!(result.update.residual[0].is_finite());
+        assert!(result.update.updated.x.iter().all(|v| v.is_finite()));
+    }
+
+    #[test]
+    fn test_exp_growth_stability_30_steps() {
+        let mut ekf = build_exp_growth_ekf();
+        for _ in 0..30 {
+            ekf.step(0.1, &[1.0]);
+        }
+        assert!(ekf.state().iter().all(|v| v.is_finite()));
+        assert!(ekf.state()[0].abs() < 1000.0);
+    }
 }

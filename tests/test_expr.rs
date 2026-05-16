@@ -61,7 +61,17 @@ mod tests {
     #[test]
     fn test_unknown_function_rejected() {
         assert!(parse("tan(pos)").is_err());
-        assert!(parse("log(pos)").is_err());
+        assert!(parse("sqrt(pos)").is_err());
+    }
+
+    #[test]
+    fn test_log_parses() {
+        assert_eq!(parse("log(pos)"), Ok(Expr::log(Expr::var("pos"))),);
+    }
+
+    #[test]
+    fn test_exp_parses() {
+        assert_eq!(parse("exp(vel)"), Ok(Expr::exp(Expr::var("vel"))),);
     }
 
     #[test]

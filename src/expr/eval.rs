@@ -45,5 +45,16 @@ pub fn eval_with_map(expr: &Expr, bindings: &HashMap<&str, f64>) -> Result<f64, 
             let val = eval_with_map(arg, bindings)?;
             Ok(val.cos())
         }
+        Expr::Log(arg) => {
+            let val = eval_with_map(arg, bindings)?;
+            if val <= 0.0 {
+                return Err("log of non-positive number".to_string());
+            }
+            Ok(val.ln())
+        }
+        Expr::Exp(arg) => {
+            let val = eval_with_map(arg, bindings)?;
+            Ok(val.exp())
+        }
     }
 }

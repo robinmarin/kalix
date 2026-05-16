@@ -49,7 +49,7 @@ fn validate_division(expr: &Expr) -> Result<(), String> {
             Ok(())
         }
         Expr::Pow(a, _) => validate_division(a),
-        Expr::Sin(a) | Expr::Cos(a) => validate_division(a),
+        Expr::Sin(a) | Expr::Cos(a) | Expr::Log(a) | Expr::Exp(a) => validate_division(a),
     }
 }
 
@@ -232,8 +232,10 @@ fn parse_atom(lexer: &mut Lexer) -> Result<Expr, String> {
                     Some(Token::RParen) => match name.as_str() {
                         "sin" => Ok(Expr::sin(arg)),
                         "cos" => Ok(Expr::cos(arg)),
+                        "log" => Ok(Expr::log(arg)),
+                        "exp" => Ok(Expr::exp(arg)),
                         other => Err(format!(
-                            "unknown function: '{}' — only sin and cos are supported",
+                            "unknown function: '{}' — only sin, cos, log, exp are supported",
                             other
                         )),
                     },
@@ -327,6 +329,32 @@ mod tests {
     #[test]
     fn test_unknown_function_rejected() {
         assert!(parse("tan(pos)").is_err());
+    }
+
+    #[test]
+    fn test_log_parses() {
+        assert_eq!(parse("log(pos)"), Ok(Expr::log(Expr::var("pos"))),);
+    }
+
+    #[test]
+    fn test_exp_parses() {
+        assert_eq!(parse("exp(vel)"), Ok(Expr::exp(Expr::var("vel"))),);
+    }
+
+    #[test]
+    fn test_log_with_expression() {
+        assert_eq!(
+            parse("log(vel + dt)"),
+            Ok(Expr::log(Expr::add(Expr::var("vel"), Expr::var("dt")))),
+        );
+    }
+
+    #[test]
+    fn test_exp_with_power() {
+        assert_eq!(
+            parse("exp(dt^2)"),
+            Ok(Expr::exp(Expr::pow(Expr::var("dt"), 2))),
+        );
     }
 
     #[test]

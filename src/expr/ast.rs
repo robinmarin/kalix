@@ -2,7 +2,7 @@
 ///
 /// Expressions are polynomial in state variables and the special token `dt`.
 /// Supported operations: addition, subtraction, multiplication, division-by-literal,
-/// integer powers, and trigonometric functions (`sin`, `cos`).
+/// integer powers, and trigonometric functions (`sin`, `cos`, `log`, `exp`).
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
     /// A numeric literal: `3.14`, `0.5`, `1.0`
@@ -23,6 +23,10 @@ pub enum Expr {
     Sin(Box<Expr>),
     /// Cosine: `cos(expr)`
     Cos(Box<Expr>),
+    /// Natural logarithm: `log(expr)`
+    Log(Box<Expr>),
+    /// Exponential: `exp(expr)`
+    Exp(Box<Expr>),
 }
 
 impl Expr {
@@ -74,6 +78,16 @@ impl Expr {
     pub fn cos(a: Expr) -> Self {
         Expr::Cos(Box::new(a))
     }
+
+    /// Convenience: `log(a)` (natural log)
+    pub fn log(a: Expr) -> Self {
+        Expr::Log(Box::new(a))
+    }
+
+    /// Convenience: `exp(a)`
+    pub fn exp(a: Expr) -> Self {
+        Expr::Exp(Box::new(a))
+    }
 }
 
 impl std::fmt::Display for Expr {
@@ -88,6 +102,8 @@ impl std::fmt::Display for Expr {
             Expr::Pow(a, n) => write!(f, "({} ^ {})", a, n),
             Expr::Sin(a) => write!(f, "sin({})", a),
             Expr::Cos(a) => write!(f, "cos({})", a),
+            Expr::Log(a) => write!(f, "log({})", a),
+            Expr::Exp(a) => write!(f, "exp({})", a),
         }
     }
 }

@@ -283,6 +283,66 @@ covariance = [[1, 0], [0, 1]]
     }
 
     #[test]
+    fn test_exponential_growth_is_ekf() {
+        const EXP_CONFIG: &str = r#"
+[filter]
+name = "exp_growth"
+
+[state]
+variables = ["x"]
+
+[dynamics]
+x = "x + 0.1*exp(x)*dt"
+
+[observation]
+variables   = ["z"]
+expressions = ["x"]
+
+[noise]
+process     = [[0.01]]
+measurement = [[1.0]]
+
+[initial]
+state      = [0.5]
+covariance = [[1.0]]
+"#;
+        let config = Config::from_toml(EXP_CONFIG).unwrap();
+        assert_eq!(config.variant, Variant::Ekf);
+        // At x=0, dt=1: F = d/dx(x + 0.1*exp(x)) = 1 + 0.1*exp(0) = 1.1
+        let F = config.derive_F(1.0);
+        assert!((F[(0, 0)] - 1.1).abs() < 1e-10);
+    }
+
+    #[test]
+    fn test_log_observation_parses() {
+        const LOG_OBS_CONFIG: &str = r#"
+[filter]
+name = "log_obs"
+
+[state]
+variables = ["intensity"]
+
+[dynamics]
+intensity = "intensity"
+
+[observation]
+variables   = ["log_z"]
+expressions = ["log(intensity)"]
+
+[noise]
+process     = [[0.01]]
+measurement = [[0.1]]
+
+[initial]
+state      = [1.0]
+covariance = [[1.0]]
+"#;
+        let config = Config::from_toml(LOG_OBS_CONFIG).unwrap();
+        // Dynamics is linear, observation non-linear doesn't change variant
+        assert_eq!(config.variant, Variant::Linear);
+    }
+
+    #[test]
     fn test_wrong_q_size_is_error() {
         const BAD_CONFIG: &str = r#"
 [filter]

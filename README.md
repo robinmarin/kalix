@@ -47,7 +47,8 @@ kalman/
 ├── configs/
 │   ├── trend_no_accel.toml
 │   ├── trend_with_accel.toml
-│   └── constant_velocity.toml
+│   ├── constant_velocity.toml
+│   └── pendulum.toml
 └── tests/
     ├── test_expr.rs
     ├── test_diff.rs
@@ -105,10 +106,14 @@ Expressions are polynomial in state variables and the special token `dt`. Suppor
 | `a * b`           | Multiplication                                  |
 | `a / b`           | Division — right-hand side must be a literal    |
 | `a ^ 2`           | Integer power (positive integers only)          |
+| `sin(expr)`       | Sine                                            |
+| `cos(expr)`       | Cosine                                          |
+| `log(expr)`       | Natural logarithm                               |
+| `exp(expr)`       | Exponential (`e^expr`)                          |
 | `(expr)`          | Grouping                                        |
 
-**No trig, no logarithms, no division by state variables.** The parser must return a
-descriptive error for unsupported syntax.
+No division by state variables — the RHS of `/` must be a numeric literal.
+Unsupported functions return a descriptive parse error.
 
 ### AST Definition
 
@@ -121,6 +126,10 @@ pub enum Expr {
     Mul(Box<Expr>, Box<Expr>),
     Div(Box<Expr>, Box<Expr>),      // right side must be Lit after parsing
     Pow(Box<Expr>, u32),
+    Sin(Box<Expr>),
+    Cos(Box<Expr>),
+    Log(Box<Expr>),                 // natural log
+    Exp(Box<Expr>),
 }
 ```
 
@@ -132,6 +141,9 @@ Implement `diff(expr: &Expr, var: &str) -> Expr`:
 - `d/dx(x) = 1`, `d/dx(y) = 0` for `y != x`
 - `d/dx(dt) = 0` — dt is a parameter, not a state variable
 - Standard sum, difference, product, and power rules
+- Chain rule for transcendental functions:
+  `d/dx(sin(u)) = cos(u) * u'`, `d/dx(cos(u)) = -sin(u) * u'`
+  `d/dx(log(u)) = u' / u`, `d/dx(exp(u)) = exp(u) * u'`
 - After differentiation, run a simplification pass:
   `0 + x -> x`, `x + 0 -> x`, `1 * x -> x`, `x * 1 -> x`,
   `0 * x -> 0`, `x * 0 -> 0`, `x ^ 1 -> x`, `x ^ 0 -> Lit(1)`
@@ -496,6 +508,32 @@ state      = [0.0, 0.0]
 covariance = [[10, 0], [0, 10]]
 ```
 
+### Pendulum (EKF with trig)
+
+```toml
+[filter]
+name = "pendulum"
+
+[state]
+variables = ["theta", "omega"]
+
+[dynamics]
+theta = "theta + omega*dt"
+omega = "omega - 9.81*sin(theta)*dt"
+
+[observation]
+variables   = ["z"]
+expressions = ["theta"]
+
+[noise]
+process     = [[0.001, 0], [0, 0.001]]
+measurement = [[0.1]]
+
+[initial]
+state      = [0.1, 0.0]
+covariance = [[0.1, 0], [0, 0.1]]
+```
+
 ---
 
 ## Language Integration
@@ -629,8 +667,14 @@ parse("dt^2") -> Pow(Var("dt"), 2)
 // Complex expression — must parse without error
 parse("pos + vel*dt + 0.5*acc*dt^2") -> Ok(...)
 
+// Trig and transcendental functions
+parse("sin(pos)")  -> Sin(Var("pos"))
+parse("cos(vel)")  -> Cos(Var("vel"))
+parse("log(pos)")  -> Log(Var("pos"))
+parse("exp(vel)")  -> Exp(Var("vel"))
+
 // Unsupported — must return Err with descriptive message
-parse("sin(pos)")  -> Err(...)    // no trig
+parse("tan(pos)")  -> Err(...)    // unknown function
 parse("pos / vel") -> Err(...)    // division by variable disallowed
 ```
 
@@ -663,6 +707,13 @@ matches!(diff("pos", "pos"), Expr::Lit(v) if v == 1.0)
 eval(diff("vel + acc*dt", "vel"), {dt: 1.0}) == 1.0
 eval(diff("vel + acc*dt", "acc"), {dt: 1.0}) == 1.0
 eval(diff("vel + acc*dt", "acc"), {dt: 0.5}) == 0.5
+
+// ── Transcendental chain rule ────────────────────────────────────────
+eval(diff("sin(x)", "x"), {x: 0.0}) == 1.0     (cos(0) = 1)
+eval(diff("cos(x)", "x"), {x: π/6}) == -0.5     (-sin(π/6) = -0.5)
+eval(diff("log(x)", "x"), {x: 2.0}) == 0.5      (1/2 = 0.5)
+eval(diff("exp(x)", "x"), {x: 0.0}) == 1.0      (exp(0) = 1)
+eval(diff("sin(2*x)", "x"), {x: 0.0}) == 2.0    (2*cos(0) = 2)
 ```
 
 ---
@@ -704,10 +755,15 @@ assert_eq!(H, [[1.0, 0.0, 0.0]]);
 
 assert_eq!(detect_variant(&config_with_accel), Variant::Linear);
 
-// ── EKF detection ─────────────────────────────────────────────────────
-// vel_next = vel - 0.01*vel^2*dt
-// d/d(vel) = 1 - 0.02*vel*dt  <- contains Var("vel") -> nonlinear
+// ── EKF detection (nonlinear dynamics) ────────────────────────────────
+// Drag: vel_next = vel - 0.01*vel^2*dt  -> d/d(vel) = 1 - 0.02*vel*dt
 assert_eq!(detect_variant(&config_drag), Variant::Ekf);
+
+// Pendulum: omega_next = omega - 9.81*sin(theta)*dt  -> contains sin/theta
+assert_eq!(detect_variant(&config_pendulum), Variant::Ekf);
+
+// Exponential growth: x_next = x + 0.1*exp(x)*dt  -> contains exp
+assert_eq!(detect_variant(&config_exp_growth), Variant::Ekf);
 
 // ── Validation errors ─────────────────────────────────────────────────
 config_with_bad_dynamics_key()       -> Err(msg contains "unknown state variable")
@@ -857,6 +913,20 @@ assert!(ekf.state()[1].abs() < 1000.0);
 let predicted = ekf.predict_only(1.0);
 assert!(predicted.x.iter().all(|v| v.is_finite()));
 assert!(predicted.P.iter().all(|v| v.is_finite()));
+
+// ── Pendulum (trigonometric dynamics) ─────────────────────────────────
+// Jacobian at theta=0, dt=1:  F = [[1, 1], [-9.81, 1]]
+let jac = pendulum_ekf.jacobian(&[0.0, 0.0], 1.0);
+assert_abs_diff_eq!(jac[(1,0)], -9.81, epsilon=1e-10);
+
+// At theta=π/6: F[1][0] = -9.81*cos(π/6) ≈ -8.495
+let jac = pendulum_ekf.jacobian(&[π/6, 0.0], 1.0);
+assert_abs_diff_eq!(jac[(1,0)], -8.495, epsilon=1e-2);
+
+// ── Exponential growth ───────────────────────────────────────────────
+// x_next = x + 0.1*exp(x)*dt  ->  F = 1 + 0.1*exp(x)*dt
+let jac = exp_ekf.jacobian(&[0.0], 1.0);
+assert_abs_diff_eq!(jac[(0,0)], 1.1, epsilon=1e-10);
 ```
 
 ---
